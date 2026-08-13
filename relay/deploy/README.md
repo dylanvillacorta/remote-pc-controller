@@ -57,6 +57,7 @@ cat public_key.pem
 
 > **Importante**:
 > - El contenido de las claves debe copiarse y pegarse formateado en **una sola línea** (reemplazando los saltos de línea por el literal `\n`) en el archivo `.env`. Esto previene fallos de lectura en parsers de Docker Compose o en paneles de control como Dokploy.
+> > **IMPORTANTE**: No utilices comillas (`"`) alrededor del valor de la clave en el archivo `.env`. Si se incluyen comillas, Docker las pasará como parte literal de la clave dentro del contenedor, lo cual provocará fallas en la validación RSA.
 > - El script [`scripts/generate_keys.sh`](file:///c:/Dylan/Dev/remote-pc-controller/scripts/generate_keys.sh) realiza esta conversión automáticamente y guarda los resultados listos en [`scripts/keys.txt`](file:///c:/Dylan/Dev/remote-pc-controller/scripts/keys.txt).
 > - Elimina los archivos temporales `.pem` una vez copiados al `.env`.
 
@@ -91,8 +92,8 @@ SENTINEL_URL=http://<IP_LAN_PC_WINDOWS>:9876/v1/commands
 VALIDITY_SECONDS=30
 MAX_BODY_BYTES=16384
 
-# Clave privada RSA en una sola línea (unida por \n):
-PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n...\n-----END RSA PRIVATE KEY-----"
+# Clave privada RSA en una sola línea (unida por \n, SIN COMILLAS):
+PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n...\n-----END RSA PRIVATE KEY-----
 ```
 
 ---
