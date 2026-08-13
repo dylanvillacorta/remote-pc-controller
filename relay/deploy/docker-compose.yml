@@ -14,13 +14,13 @@ services:
       - path: .env
         required: false
     environment:
-      - LISTEN_ADDR=${LISTEN_ADDR:-:8080}
+      - LISTEN_ADDR=${LISTEN_ADDR}
       - API_SECRET=${API_SECRET}
       - DEVICE_ID=${DEVICE_ID}
       - SENTINEL_URL=${SENTINEL_URL}
-      - PRIVATE_KEY=${PRIVATE_KEY:-}
-      - VALIDITY_SECONDS=${VALIDITY_SECONDS:-30}
-      - MAX_BODY_BYTES=${MAX_BODY_BYTES:-16384}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - VALIDITY_SECONDS=${VALIDITY_SECONDS}
+      - MAX_BODY_BYTES=${MAX_BODY_BYTES}
     read_only: true
     security_opt:
       - no-new-privileges:true
