@@ -1,0 +1,6 @@
+.gocache/
+.gomodcache/
+*.exe
+*.log
+deploy/relay/secrets/*
+!deploy/relay/secrets/.gitkeep
