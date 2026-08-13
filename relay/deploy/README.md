@@ -86,7 +86,7 @@ Edita `deploy/.env` con tus valores reales:
 LISTEN_ADDR=:8080
 API_SECRET=<tu-secreto-generado-en-el-paso-2>
 DEVICE_ID=sentinel-office
-SENTINEL_URL=https://<IP_LAN_PC_WINDOWS>:9876/v1/commands
+SENTINEL_URL=http://<IP_LAN_PC_WINDOWS>:9876/v1/commands
 VALIDITY_SECONDS=30
 MAX_BODY_BYTES=16384
 
