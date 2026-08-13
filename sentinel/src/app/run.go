@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"remote-pc-controller/sentinel/src/config"
@@ -46,5 +47,18 @@ func runtimeFromExecutable(logger *log.Logger) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	for _, arg := range os.Args {
+		if arg == "--show-config" || arg == "--debug-env" || arg == "-show-config" || arg == "-debug-env" {
+			logger.Println("[DEBUG-ENV] Variables cargadas para Sentinel:")
+			logger.Printf("  PORT=%s (LISTEN_ADDR=%s)", strings.TrimPrefix(cfg.ListenAddr, ":"), cfg.ListenAddr)
+			logger.Printf("  DEVICE_ID=%s", cfg.DeviceID)
+			logger.Printf("  MAX_BODY_BYTES=%d", cfg.MaxBodyBytes)
+			logger.Printf("  CLOCK_SKEW_SECONDS=%d", cfg.ClockSkewSec)
+			logger.Println("  PUBLIC_KEY=Cargada y válida (RSA)")
+			break
+		}
+	}
+
 	return NewRuntime(cfg, logger, windows.NewHibernateExecutor())
 }
