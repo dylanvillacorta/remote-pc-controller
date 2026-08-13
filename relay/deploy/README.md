@@ -83,6 +83,7 @@ cp deploy/.env.example deploy/.env
 Edita `deploy/.env` con tus valores reales:
 
 ```dotenv
+HOST_PORT=8080
 LISTEN_ADDR=:8080
 API_SECRET=<tu-secreto-generado-en-el-paso-2>
 DEVICE_ID=sentinel-office

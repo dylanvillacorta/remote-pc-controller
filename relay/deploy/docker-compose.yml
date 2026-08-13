@@ -8,8 +8,8 @@ services:
     container_name: remote-pc-relay
     restart: unless-stopped
     ports:
-      # Vinculado estrictamente a loopback (127.0.0.1) para que solo Nginx local acceda
-      - "127.0.0.1:8080:8080"
+      # Mapeo al puerto del anfitrión (configurable via HOST_PORT, ej. 8080 o 127.0.0.1:8080)
+      - "${HOST_PORT:-8080}:8080"
     # Carga variables desde el archivo .env
     env_file:
       - path: .env
