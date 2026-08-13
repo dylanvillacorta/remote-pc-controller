@@ -36,12 +36,10 @@ API_SECRET=$(openssl rand -hex 32)
 PRIVATE_KEY_CONTENT=$(cat "${PRIVATE_KEY_FILE}")
 PUBLIC_KEY_CONTENT=$(cat "${PUBLIC_KEY_FILE}")
 
-# Eliminar retornos de carro (\r) si existen y reemplazar saltos de línea (\n) con el literal \n
-PRIVATE_KEY_TEMP="${PRIVATE_KEY_CONTENT//$'\r'/}"
-PRIVATE_KEY_ONELINE="${PRIVATE_KEY_TEMP//$'\n'/\\n}"
+# Formato compatible con POSIX sh (dash/bash/zsh) para eliminar \r y reemplazar \n por el literal \n
+PRIVATE_KEY_ONELINE=$(printf '%s' "${PRIVATE_KEY_CONTENT}" | tr -d '\r' | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
+PUBLIC_KEY_ONELINE=$(printf '%s' "${PUBLIC_KEY_CONTENT}" | tr -d '\r' | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
 
-PUBLIC_KEY_TEMP="${PUBLIC_KEY_CONTENT//$'\r'/}"
-PUBLIC_KEY_ONELINE="${PUBLIC_KEY_TEMP//$'\n'/\\n}"
 
 
 # ==============================================================================
