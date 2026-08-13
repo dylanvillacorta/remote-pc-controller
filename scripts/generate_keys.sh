@@ -36,8 +36,13 @@ API_SECRET=$(openssl rand -hex 32)
 PRIVATE_KEY_CONTENT=$(cat "${PRIVATE_KEY_FILE}")
 PUBLIC_KEY_CONTENT=$(cat "${PUBLIC_KEY_FILE}")
 
-PRIVATE_KEY_ONELINE=$(echo "${PRIVATE_KEY_CONTENT}" | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
-PUBLIC_KEY_ONELINE=$(echo "${PUBLIC_KEY_CONTENT}" | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
+# Eliminar retornos de carro (\r) si existen y reemplazar saltos de línea (\n) con el literal \n
+PRIVATE_KEY_TEMP="${PRIVATE_KEY_CONTENT//$'\r'/}"
+PRIVATE_KEY_ONELINE="${PRIVATE_KEY_TEMP//$'\n'/\\n}"
+
+PUBLIC_KEY_TEMP="${PUBLIC_KEY_CONTENT//$'\r'/}"
+PUBLIC_KEY_ONELINE="${PUBLIC_KEY_TEMP//$'\n'/\\n}"
+
 
 # ==============================================================================
 # Mostrar resultados formateados y guardarlos en keys.txt
