@@ -4,6 +4,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     image: remote-pc-controller-relay:latest
+    pull_policy: build
     container_name: remote-pc-relay
     restart: unless-stopped
     ports:
