@@ -36,13 +36,14 @@ API_SECRET=$(openssl rand -hex 32)
 PRIVATE_KEY_CONTENT=$(cat "${PRIVATE_KEY_FILE}")
 PUBLIC_KEY_CONTENT=$(cat "${PUBLIC_KEY_FILE}")
 
-PRIVATE_KEY_ONELINE=$(echo "${PRIVATE_KEY_CONTENT}" | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
-PUBLIC_KEY_ONELINE=$(echo "${PUBLIC_KEY_CONTENT}" | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
+PRIVATE_KEY_ONELINE=$(echo "${PRIVATE_KEY_CONTENT}" | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
+PUBLIC_KEY_ONELINE=$(echo "${PUBLIC_KEY_CONTENT}" | awk 'NR>1 {printf "\\n"} {printf "%s", $0}')
 
 # ==============================================================================
 # Mostrar resultados formateados y guardarlos en keys.txt
 # ==============================================================================
-OUTPUT_FILE="keys.txt"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OUTPUT_FILE="${SCRIPT_DIR}/keys.txt"
 
 {
     echo "=============================================================================="
