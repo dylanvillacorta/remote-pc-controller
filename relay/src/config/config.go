@@ -6,80 +6,86 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 type Config struct {
-	ListenAddr   string
-	DeviceID     string
-	PublicKey    *rsa.PublicKey
-	StatePath    string
-	TLSCertFile  string
-	TLSKeyFile   string
-	MaxBodyBytes int64
-	ClockSkewSec int64
+	ListenAddr, APISecret, DeviceID, SentinelURL string
+	PrivateKey                                   *rsa.PrivateKey
+	ValiditySeconds                              int64
+	MaxBodyBytes                                 int64
 }
 
 func Load(path string) (Config, error) {
-	values, err := readDotEnv(path)
-	if err != nil {
-		return Config{}, err
+	v := map[string]string{}
+	if path != "" {
+		if fileValues, err := readDotEnv(path); err == nil {
+			v = fileValues
+		} else if _, statErr := os.Stat(path); statErr == nil {
+			return Config{}, err
+		}
 	}
-	port := values["PORT"]
-	if port == "" {
-		return Config{}, fmt.Errorf("PORT is required")
+
+	get := func(key string) string {
+		if val, ok := v[key]; ok && strings.TrimSpace(val) != "" {
+			return strings.TrimSpace(val)
+		}
+		return strings.TrimSpace(os.Getenv(key))
 	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil || portNum < 1 || portNum > 65535 {
-		return Config{}, fmt.Errorf("PORT must be between 1 and 65535")
+
+	apiSecret := get("API_SECRET")
+	if apiSecret == "" {
+		return Config{}, fmt.Errorf("API_SECRET is required")
 	}
-	key, err := publicKey(values)
-	if err != nil {
-		return Config{}, err
-	}
-	device := values["DEVICE_ID"]
-	if device == "" {
+
+	deviceID := get("DEVICE_ID")
+	if deviceID == "" {
 		return Config{}, fmt.Errorf("DEVICE_ID is required")
 	}
-	base := filepath.Dir(path)
-	state := values["STATE_PATH"]
-	if state == "" {
-		state = filepath.Join(base, "replay-state.json")
+
+	sentinelURL := get("SENTINEL_URL")
+	if sentinelURL == "" {
+		return Config{}, fmt.Errorf("SENTINEL_URL is required")
 	}
-	maxBody := int64(64 * 1024)
-	if value := values["MAX_BODY_BYTES"]; value != "" {
-		maxBody, err = strconv.ParseInt(value, 10, 64)
-		if err != nil || maxBody < 1024 {
+
+	key, err := loadPrivateKey(get)
+	if err != nil {
+		return Config{}, err
+	}
+
+	c := Config{
+		ListenAddr:      valueOr(get("LISTEN_ADDR"), ":8080"),
+		APISecret:       apiSecret,
+		DeviceID:        deviceID,
+		SentinelURL:     sentinelURL,
+		PrivateKey:      key,
+		ValiditySeconds: 30,
+		MaxBodyBytes:    16 * 1024,
+	}
+
+	var parseErr error
+	if val := get("VALIDITY_SECONDS"); val != "" {
+		c.ValiditySeconds, parseErr = strconv.ParseInt(val, 10, 64)
+		if parseErr != nil || c.ValiditySeconds < 1 || c.ValiditySeconds > 300 {
+			return Config{}, fmt.Errorf("VALIDITY_SECONDS is invalid")
+		}
+	}
+	if val := get("MAX_BODY_BYTES"); val != "" {
+		c.MaxBodyBytes, parseErr = strconv.ParseInt(val, 10, 64)
+		if parseErr != nil || c.MaxBodyBytes < 1024 {
 			return Config{}, fmt.Errorf("MAX_BODY_BYTES is invalid")
 		}
 	}
-	skew := int64(5)
-	if value := values["CLOCK_SKEW_SECONDS"]; value != "" {
-		skew, err = strconv.ParseInt(value, 10, 64)
-		if err != nil || skew < 0 || skew > 300 {
-			return Config{}, fmt.Errorf("CLOCK_SKEW_SECONDS is invalid")
-		}
-	}
-	return Config{
-		ListenAddr:   valueOr(values["LISTEN_ADDR"], ":"+port),
-		DeviceID:     device,
-		PublicKey:    key,
-		StatePath:    state,
-		TLSCertFile:  values["TLS_CERT_FILE"],
-		TLSKeyFile:   values["TLS_KEY_FILE"],
-		MaxBodyBytes: maxBody,
-		ClockSkewSec: skew,
-	}, nil
+	return c, nil
 }
 
 func readDotEnv(path string) (map[string]string, error) {
-	contents, err := os.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return parseDotEnv(string(contents))
+	return parseDotEnv(string(b))
 }
 
 func parseDotEnv(content string) (map[string]string, error) {
@@ -151,26 +157,29 @@ func parseDotEnv(content string) (map[string]string, error) {
 	return values, nil
 }
 
-func publicKey(values map[string]string) (*rsa.PublicKey, error) {
-	rawKey := valueOr(values["PUBLIC_KEY"], values["PUBLIC_KEY_PEM"])
+func loadPrivateKey(get func(string) string) (*rsa.PrivateKey, error) {
+	rawKey := valueOr(get("PRIVATE_KEY"), get("PRIVATE_KEY_PEM"))
 	if rawKey == "" {
-		return nil, fmt.Errorf("PUBLIC_KEY is required")
+		return nil, fmt.Errorf("PRIVATE_KEY is required")
 	}
 	rawKey = strings.ReplaceAll(rawKey, `\n`, "\n")
-	data := []byte(strings.TrimSpace(rawKey))
-	block, _ := pem.Decode(data)
+	b := []byte(strings.TrimSpace(rawKey))
+	block, _ := pem.Decode(b)
 	if block == nil {
-		return nil, fmt.Errorf("public key is not PEM")
+		return nil, fmt.Errorf("private key is not PEM")
 	}
-	if parsed, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
-		if key, ok := parsed.(*rsa.PublicKey); ok {
-			return key, nil
-		}
-	}
-	if key, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
+	if key, e := x509.ParsePKCS1PrivateKey(block.Bytes); e == nil {
 		return key, nil
 	}
-	return nil, fmt.Errorf("public key is not an RSA public key")
+	parsed, e := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if e != nil {
+		return nil, fmt.Errorf("private key is not valid: %w", e)
+	}
+	key, ok := parsed.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("private key is not RSA")
+	}
+	return key, nil
 }
 
 func valueOr(value, fallback string) string {

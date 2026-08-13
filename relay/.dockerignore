@@ -1,0 +1,12 @@
+.git
+.gitignore
+deploy/
+*.env*
+*.pem
+*.key
+*.crt
+*.exe
+*.bin
+*.log
+.DS_Store
+Thumbs.db
