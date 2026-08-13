@@ -3,7 +3,6 @@ package replay
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,10 +10,7 @@ import (
 )
 
 func TestStoreRejectsRepeatedCommandIDAndNonce(t *testing.T) {
-	store, err := NewStore(filepath.Join(t.TempDir(), "replay-state.json"))
-	if err != nil {
-		t.Fatalf("NewStore() error = %v", err)
-	}
+	store := NewStore()
 	now := time.Date(2026, time.August, 13, 12, 0, 0, 0, time.UTC)
 	expiresAt := now.Add(time.Minute)
 

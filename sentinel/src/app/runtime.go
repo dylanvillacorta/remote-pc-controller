@@ -24,10 +24,7 @@ func NewRuntime(cfg config.Config, logger *log.Logger, executor command.ActionEx
 	if logger == nil {
 		return nil, errors.New("logger is required")
 	}
-	replayStore, err := replay.NewStore(cfg.StatePath)
-	if err != nil {
-		return nil, err
-	}
+	replayStore := replay.NewStore()
 	service, err := command.NewService(
 		command.Policy{
 			DeviceID:    cfg.DeviceID,
@@ -58,11 +55,6 @@ func NewRuntime(cfg config.Config, logger *log.Logger, executor command.ActionEx
 func (r *Runtime) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
-		if r.config.TLSCertFile != "" && r.config.TLSKeyFile != "" {
-			errCh <- r.server.ListenAndServeTLS(r.config.TLSCertFile, r.config.TLSKeyFile)
-			return
-		}
-		r.logger.Printf("WARNING: TLS_CERT_FILE/TLS_KEY_FILE absent; HTTP mode is for local development only")
 		errCh <- r.server.ListenAndServe()
 	}()
 

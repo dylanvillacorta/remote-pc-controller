@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -15,9 +14,6 @@ type Config struct {
 	ListenAddr   string
 	DeviceID     string
 	PublicKey    *rsa.PublicKey
-	StatePath    string
-	TLSCertFile  string
-	TLSKeyFile   string
 	MaxBodyBytes int64
 	ClockSkewSec int64
 }
@@ -43,11 +39,6 @@ func Load(path string) (Config, error) {
 	if device == "" {
 		return Config{}, fmt.Errorf("DEVICE_ID is required")
 	}
-	base := filepath.Dir(path)
-	state := values["STATE_PATH"]
-	if state == "" {
-		state = filepath.Join(base, "replay-state.json")
-	}
 	maxBody := int64(64 * 1024)
 	if value := values["MAX_BODY_BYTES"]; value != "" {
 		maxBody, err = strconv.ParseInt(value, 10, 64)
@@ -63,12 +54,9 @@ func Load(path string) (Config, error) {
 		}
 	}
 	return Config{
-		ListenAddr:   valueOr(values["LISTEN_ADDR"], ":"+port),
+		ListenAddr:   ":" + port,
 		DeviceID:     device,
 		PublicKey:    key,
-		StatePath:    state,
-		TLSCertFile:  values["TLS_CERT_FILE"],
-		TLSKeyFile:   values["TLS_KEY_FILE"],
 		MaxBodyBytes: maxBody,
 		ClockSkewSec: skew,
 	}, nil
