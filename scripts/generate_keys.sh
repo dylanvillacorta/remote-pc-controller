@@ -36,27 +36,36 @@ API_SECRET=$(openssl rand -hex 32)
 PRIVATE_KEY_CONTENT=$(cat "${PRIVATE_KEY_FILE}")
 PUBLIC_KEY_CONTENT=$(cat "${PUBLIC_KEY_FILE}")
 
+PRIVATE_KEY_ONELINE=$(echo "${PRIVATE_KEY_CONTENT}" | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
+PUBLIC_KEY_ONELINE=$(echo "${PUBLIC_KEY_CONTENT}" | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
+
 # ==============================================================================
-# Mostrar resultados formateados listos para copiar y pegar
+# Mostrar resultados formateados y guardarlos en keys.txt
 # ==============================================================================
-echo ""
-echo "=============================================================================="
-echo "          CLAVES Y SECRETOS GENERADOS CORRECTAMENTE (WSL / Linux)             "
-echo "=============================================================================="
-echo ""
-echo ">>> 1. PARA EL ARCHIVO .env DE RELAY (deploy/.env):"
-echo "------------------------------------------------------------------------------"
-echo "API_SECRET=${API_SECRET}"
-echo "PRIVATE_KEY=\"${PRIVATE_KEY_CONTENT}\""
-echo "------------------------------------------------------------------------------"
-echo ""
-echo ">>> 2. PARA EL ARCHIVO .env DE SENTINEL (PC Windows):"
-echo "------------------------------------------------------------------------------"
-echo "PUBLIC_KEY=\"${PUBLIC_KEY_CONTENT}\""
-echo "------------------------------------------------------------------------------"
-echo ""
-echo ">>> 3. TOKEN PARA LA CABECERA DE SIRI / ATAJOS (SHORTCUTS):"
-echo "------------------------------------------------------------------------------"
-echo "Authorization: Bearer ${API_SECRET}"
-echo "------------------------------------------------------------------------------"
-echo ""
+OUTPUT_FILE="keys.txt"
+
+{
+    echo "=============================================================================="
+    echo "          CLAVES Y SECRETOS GENERADOS CORRECTAMENTE (WSL / Linux)             "
+    echo "=============================================================================="
+    echo ""
+    echo ">>> 1. PARA EL ARCHIVO .env DE RELAY (deploy/.env):"
+    echo "------------------------------------------------------------------------------"
+    echo "API_SECRET=${API_SECRET}"
+    echo "PRIVATE_KEY=\"${PRIVATE_KEY_ONELINE}\""
+    echo "------------------------------------------------------------------------------"
+    echo ""
+    echo ">>> 2. PARA EL ARCHIVO .env DE SENTINEL (PC Windows):"
+    echo "------------------------------------------------------------------------------"
+    echo "PUBLIC_KEY=\"${PUBLIC_KEY_ONELINE}\""
+    echo "------------------------------------------------------------------------------"
+    echo ""
+    echo ">>> 3. TOKEN PARA LA CABECERA DE SIRI / ATAJOS (SHORTCUTS):"
+    echo "------------------------------------------------------------------------------"
+    echo "Authorization: Bearer ${API_SECRET}"
+    echo "------------------------------------------------------------------------------"
+    echo ""
+} | tee "${OUTPUT_FILE}"
+
+echo "Resultados guardados en: ${OUTPUT_FILE}"
+
