@@ -106,6 +106,10 @@ func (c AcceptedCommand) Action() Action {
 	return c.command.Action
 }
 
+func (c AcceptedCommand) DeviceID() string {
+	return c.command.DeviceID
+}
+
 func (s *Service) Accept(ctx context.Context, command Command) (AcceptedCommand, error) {
 	if err := ctx.Err(); err != nil {
 		return AcceptedCommand{}, err

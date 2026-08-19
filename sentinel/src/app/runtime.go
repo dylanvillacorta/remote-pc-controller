@@ -10,6 +10,7 @@ import (
 	"remote-pc-controller/sentinel/src/command"
 	"remote-pc-controller/sentinel/src/config"
 	"remote-pc-controller/sentinel/src/httpapi"
+	"remote-pc-controller/sentinel/src/notify"
 	"remote-pc-controller/sentinel/src/replay"
 )
 
@@ -39,12 +40,20 @@ func NewRuntime(cfg config.Config, logger *log.Logger, executor command.ActionEx
 	if err != nil {
 		return nil, err
 	}
+
+	var notifier notify.Notifier
+	if cfg.EnableNotifications {
+		notifier = notify.NewWindowsNotifier()
+	} else {
+		notifier = notify.NewNoOp()
+	}
+
 	return &Runtime{
 		config: cfg,
 		logger: logger,
 		server: &http.Server{
 			Addr:              cfg.ListenAddr,
-			Handler:           httpapi.NewHandler(logger, service, cfg.MaxBodyBytes),
+			Handler:           httpapi.NewHandler(logger, service, notifier, cfg.MaxBodyBytes),
 			ReadHeaderTimeout: 5 * time.Second,
 			WriteTimeout:      10 * time.Second,
 			IdleTimeout:       30 * time.Second,

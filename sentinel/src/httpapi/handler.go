@@ -10,17 +10,22 @@ import (
 	"time"
 
 	"remote-pc-controller/sentinel/src/command"
+	"remote-pc-controller/sentinel/src/notify"
 )
 
 // Handler is the HTTP adapter. It only parses requests and translates service
 // results into HTTP responses; it does not contain command-security rules.
 type Handler struct {
-	logger  *log.Logger
-	service *command.Service
+	logger   *log.Logger
+	service  *command.Service
+	notifier notify.Notifier
 }
 
-func NewHandler(logger *log.Logger, service *command.Service, maxBodyBytes int64) http.Handler {
-	handler := &Handler{logger: logger, service: service}
+func NewHandler(logger *log.Logger, service *command.Service, notifier notify.Notifier, maxBodyBytes int64) http.Handler {
+	if notifier == nil {
+		notifier = notify.NewNoOp()
+	}
+	handler := &Handler{logger: logger, service: service, notifier: notifier}
 	routes := http.NewServeMux()
 	routes.HandleFunc("/health", handler.health)
 	routes.HandleFunc("/v1/commands", handler.command)
@@ -43,15 +48,23 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request) {
 
 	request, err := decodeCommand(r.Body)
 	if err != nil {
+		h.notifier.NotifyValidationFailure("N/A", "JSON inválido o cuerpo de petición corrupto")
 		http.Error(w, "invalid JSON", requestErrorStatus(err))
 		return
 	}
 	accepted, err := h.service.Accept(r.Context(), request)
 	if err != nil {
+		cmdID := request.CommandID
+		if cmdID == "" {
+			cmdID = "N/A"
+		}
+		h.notifier.NotifyValidationFailure(cmdID, err.Error())
 		status, message := commandErrorResponse(err)
 		http.Error(w, message, status)
 		return
 	}
+
+	h.notifier.NotifyActionExecuted(string(accepted.Action()), accepted.DeviceID())
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
@@ -99,8 +112,20 @@ func commandErrorResponse(err error) (int, string) {
 	if errors.Is(err, command.ErrAlreadyProcessed) {
 		return http.StatusConflict, "command already processed"
 	}
-	if errors.Is(err, command.ErrReplayUnavailable) {
-		return http.StatusInternalServerError, "temporary command processing failure"
+	if errors.Is(err, command.ErrWrongDevice) {
+		return http.StatusForbidden, "target device mismatch"
 	}
-	return http.StatusUnauthorized, "command rejected"
+	if errors.Is(err, command.ErrUnsupportedAction) {
+		return http.StatusUnprocessableEntity, "unsupported action"
+	}
+	if errors.Is(err, command.ErrExpiredCommand) {
+		return http.StatusForbidden, "command expired or skew exceeded"
+	}
+	if errors.Is(err, command.ErrInvalidSignature) {
+		return http.StatusUnauthorized, "invalid cryptographic signature"
+	}
+	if errors.Is(err, command.ErrReplayUnavailable) {
+		return http.StatusServiceUnavailable, "replay protection unavailable"
+	}
+	return http.StatusBadRequest, "invalid command payload"
 }

@@ -75,3 +75,64 @@ func TestLoad_EscapedNewlinePublicKey(t *testing.T) {
 		t.Fatalf("expected PublicKey to be parsed from escaped newline PEM")
 	}
 }
+
+func TestSaveAndLoadWithDefaults(t *testing.T) {
+	pubPEM := generateTestKeyPair(t)
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, ".env")
+
+	// 1. Load when file doesn't exist returns defaults
+	defaults, err := LoadWithDefaults(envPath)
+	if err != nil {
+		t.Fatalf("unexpected error loading non-existent: %v", err)
+	}
+	if defaults["PORT"] != "9876" {
+		t.Errorf("expected default PORT 9876, got %s", defaults["PORT"])
+	}
+
+	// 2. Save new values
+	valuesToSave := map[string]string{
+		"PORT":               "12345",
+		"DEVICE_ID":          "test-custom-pc",
+		"PUBLIC_KEY":         string(pubPEM),
+		"CLOCK_SKEW_SECONDS":   "10",
+		"MAX_BODY_BYTES":       "131072",
+		"ENABLE_NOTIFICATIONS": "false",
+	}
+	if err := Save(envPath, valuesToSave); err != nil {
+		t.Fatalf("unexpected error saving: %v", err)
+	}
+
+	// 3. Load saved configuration
+	loaded, err := LoadWithDefaults(envPath)
+	if err != nil {
+		t.Fatalf("unexpected error loading saved: %v", err)
+	}
+	if loaded["PORT"] != "12345" {
+		t.Errorf("expected PORT 12345, got %s", loaded["PORT"])
+	}
+	if loaded["DEVICE_ID"] != "test-custom-pc" {
+		t.Errorf("expected DEVICE_ID test-custom-pc, got %s", loaded["DEVICE_ID"])
+	}
+	if loaded["ENABLE_NOTIFICATIONS"] != "false" {
+		t.Errorf("expected ENABLE_NOTIFICATIONS false, got %s", loaded["ENABLE_NOTIFICATIONS"])
+	}
+
+	// 4. Validate through Load()
+	cfg, err := Load(envPath)
+	if err != nil {
+		t.Fatalf("unexpected error in Load: %v", err)
+	}
+	if cfg.ListenAddr != ":12345" {
+		t.Errorf("expected ListenAddr :12345, got %s", cfg.ListenAddr)
+	}
+	if cfg.DeviceID != "test-custom-pc" {
+		t.Errorf("expected DeviceID test-custom-pc, got %s", cfg.DeviceID)
+	}
+	if cfg.ClockSkewSec != 10 {
+		t.Errorf("expected ClockSkewSec 10, got %d", cfg.ClockSkewSec)
+	}
+	if cfg.EnableNotifications != false {
+		t.Errorf("expected EnableNotifications false, got %v", cfg.EnableNotifications)
+	}
+}
