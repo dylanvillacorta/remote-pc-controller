@@ -184,6 +184,7 @@ type guiState struct {
 	hChkFw         windows.Handle
 	hChkNotify     windows.Handle
 	hTxtKey        windows.Handle
+	hLblKeyStatus  windows.Handle
 	hLblLog        windows.Handle
 
 	hBtnInstall   windows.Handle
@@ -277,7 +278,7 @@ func LaunchGUI() error {
 	windowStyle := uint32(WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE)
 
 	width := int32(640)
-	height := int32(760)
+	height := int32(780)
 	screenWidth := getSystemMetrics(0)
 	screenHeight := getSystemMetrics(1)
 	posX := (screenWidth - width) / 2
@@ -303,6 +304,7 @@ func LaunchGUI() error {
 	createControls(gState.hMainWnd, values)
 	updateServiceStatus()
 	validatePortLive()
+	validateKeyLive()
 
 	// Periodic timer to keep status updated every 1.5 seconds
 	procSetTimer.Call(uintptr(gState.hMainWnd), 1, 1500, 0)
@@ -335,7 +337,7 @@ func createControls(hwnd windows.Handle, values map[string]string) {
 	gState.hStatusPill = createLabel(hwnd, "Consultando...", 140, 92, 440, 20, gState.hFontBold)
 
 	// Configuration Group
-	createGroupBox(hwnd, " Parámetros de Configuración (.env) ", 20, 134, 584, 434, gState.hFontBold)
+	createGroupBox(hwnd, " Parámetros de Configuración (.env) ", 20, 134, 584, 456, gState.hFontBold)
 
 	createLabel(hwnd, "Puerto de Escucha:", 36, 158, 140, 18, gState.hFont)
 	// Create Port TextBox with ES_NUMBER so only digits (0-9) can be typed
@@ -350,28 +352,31 @@ func createControls(hwnd windows.Handle, values map[string]string) {
 	createLabel(hwnd, "Reloj Skew (seg):", 300, 208, 140, 18, gState.hFont)
 	gState.hTxtSkew = createNumericEdit(hwnd, values["CLOCK_SKEW_SECONDS"], 300, 228, 120, 24, ID_TXT_SKEW, gState.hFont, 4)
 
-	gState.hChkFw = createCheckBox(hwnd, "Abrir regla de entrada en el Firewall de Windows automáticamente", 36, 260, 540, 22, ID_CHK_FW, gState.hFont, true)
+	gState.hChkFw = createCheckBox(hwnd, "Abrir regla de entrada en el Firewall de Windows automáticamente", 36, 258, 540, 22, ID_CHK_FW, gState.hFont, true)
 
 	notifChecked := true
 	if values["ENABLE_NOTIFICATIONS"] == "false" {
 		notifChecked = false
 	}
-	gState.hChkNotify = createCheckBox(hwnd, "Mostrar notificaciones de escritorio en fallos de validación y eventos", 36, 286, 540, 22, ID_CHK_NOTIFY, gState.hFont, notifChecked)
+	gState.hChkNotify = createCheckBox(hwnd, "Mostrar notificaciones de escritorio en fallos de validación y eventos", 36, 284, 540, 22, ID_CHK_NOTIFY, gState.hFont, notifChecked)
 
-	createLabel(hwnd, "Clave Pública RSA (PEM):", 36, 314, 200, 18, gState.hFont)
-	createButton(hwnd, "📂 Cargar Archivo...", 340, 310, 130, 24, ID_BTN_LOAD_FILE, gState.hFont)
-	createButton(hwnd, "📋 Pegar", 480, 310, 95, 24, ID_BTN_PASTE, gState.hFont)
+	createLabel(hwnd, "Clave Pública RSA (PEM):", 36, 314, 180, 18, gState.hFont)
+	createButton(hwnd, "📂 Cargar Archivo .pem...", 224, 310, 180, 24, ID_BTN_LOAD_FILE, gState.hFont)
+	createButton(hwnd, "📋 Pegar", 412, 310, 95, 24, ID_BTN_PASTE, gState.hFont)
 
-	gState.hTxtKey = createMultilineEdit(hwnd, values["PUBLIC_KEY"], 36, 338, 550, 214, ID_TXT_KEY, gState.hFontMono)
+	// Live Key Status Indicator Label
+	gState.hLblKeyStatus = createLabel(hwnd, "Comprobando clave...", 36, 338, 550, 20, gState.hFontSmall)
+
+	gState.hTxtKey = createMultilineEdit(hwnd, values["PUBLIC_KEY"], 36, 360, 550, 216, ID_TXT_KEY, gState.hFontMono)
 
 	// Action Buttons
-	gState.hBtnInstall = createButton(hwnd, "🚀 Instalar Servicio", 20, 582, 175, 42, ID_BTN_INSTALL, gState.hFontBold)
-	gState.hBtnStart = createButton(hwnd, "▶ Iniciar", 205, 582, 115, 42, ID_BTN_START, gState.hFontBold)
-	gState.hBtnStop = createButton(hwnd, "⏹ Detener", 330, 582, 115, 42, ID_BTN_STOP, gState.hFontBold)
-	gState.hBtnUninstall = createButton(hwnd, "🗑 Desinstalar", 455, 582, 149, 42, ID_BTN_UNINSTALL, gState.hFontBold)
+	gState.hBtnInstall = createButton(hwnd, "🚀 Instalar Servicio", 20, 604, 175, 42, ID_BTN_INSTALL, gState.hFontBold)
+	gState.hBtnStart = createButton(hwnd, "▶ Iniciar", 205, 604, 115, 42, ID_BTN_START, gState.hFontBold)
+	gState.hBtnStop = createButton(hwnd, "⏹ Detener", 330, 604, 115, 42, ID_BTN_STOP, gState.hFontBold)
+	gState.hBtnUninstall = createButton(hwnd, "🗑 Desinstalar", 455, 604, 149, 42, ID_BTN_UNINSTALL, gState.hFontBold)
 
 	// Log Bar
-	gState.hLblLog = createLabel(hwnd, "Listo.", 20, 636, 584, 30, gState.hFont)
+	gState.hLblLog = createLabel(hwnd, "Listo.", 20, 658, 584, 30, gState.hFont)
 }
 
 func wndProc(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
@@ -383,6 +388,8 @@ func wndProc(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 			handleButtonClick(id)
 		} else if code == EN_CHANGE && id == ID_TXT_PORT {
 			validatePortLive()
+		} else if code == EN_CHANGE && id == ID_TXT_KEY {
+			validateKeyLive()
 		}
 		return 0
 
@@ -432,6 +439,26 @@ func validatePortLive() {
 	setWindowText(gState.hLblPortStatus, fmt.Sprintf("✅ Puerto %d disponible en todas las IPs (0.0.0.0)", port))
 }
 
+func validateKeyLive() {
+	raw := strings.TrimSpace(getWindowText(gState.hTxtKey))
+	if raw == "" {
+		setWindowText(gState.hLblKeyStatus, "⚠️ Ingresa o carga la Clave Pública RSA")
+		return
+	}
+
+	info, err := config.InspectPublicKey(raw)
+	if err != nil {
+		setWindowText(gState.hLblKeyStatus, fmt.Sprintf("❌ Formato RSA inválido: %v", err))
+		return
+	}
+
+	formatLabel := "multilínea tradicional"
+	if info.IsSingleLine {
+		formatLabel = "línea única con escapes"
+	}
+	setWindowText(gState.hLblKeyStatus, fmt.Sprintf("✅ Clave RSA válida: %d bits (%s - %s)", info.Bits, formatLabel, info.FormatType))
+}
+
 func handleButtonClick(id int) {
 	switch id {
 	case ID_BTN_LOAD_FILE:
@@ -444,14 +471,20 @@ func handleButtonClick(id int) {
 				}
 				setWindowText(gState.hTxtKey, keyStr)
 				setLog(fmt.Sprintf("Archivo cargado: %s", filepath.Base(filePath)))
+				validateKeyLive()
 			}
 		}
 
 	case ID_BTN_PASTE:
 		text := getClipboardText()
 		if text != "" {
-			setWindowText(gState.hTxtKey, text)
+			keyStr := extractPublicKeyFromText(text)
+			if keyStr == "" {
+				keyStr = strings.TrimSpace(text)
+			}
+			setWindowText(gState.hTxtKey, keyStr)
 			setLog("Clave pegada desde el portapapeles.")
+			validateKeyLive()
 		}
 
 	case ID_BTN_INSTALL:
@@ -502,6 +535,7 @@ func handleButtonClick(id int) {
 		}
 		updateServiceStatus()
 		validatePortLive()
+		validateKeyLive()
 
 	case ID_BTN_START:
 		portStr := strings.TrimSpace(getWindowText(gState.hTxtPort))
@@ -528,6 +562,7 @@ func handleButtonClick(id int) {
 		}
 		updateServiceStatus()
 		validatePortLive()
+		validateKeyLive()
 
 	case ID_BTN_STOP:
 		setLog("Deteniendo servicio...")
@@ -539,6 +574,7 @@ func handleButtonClick(id int) {
 		}
 		updateServiceStatus()
 		validatePortLive()
+		validateKeyLive()
 
 	case ID_BTN_UNINSTALL:
 		if messageBox(gState.hMainWnd, "¿Estás seguro de que deseas desinstalar el servicio Sentinel?", "Confirmar Desinstalación", windows.MB_YESNO|windows.MB_ICONQUESTION) == IDYES {
@@ -551,6 +587,7 @@ func handleButtonClick(id int) {
 			}
 			updateServiceStatus()
 			validatePortLive()
+			validateKeyLive()
 		}
 	}
 }
@@ -828,8 +865,8 @@ func getSystemMetrics(index int32) int32 {
 
 func openFileDialog(parent windows.Handle) string {
 	fileBuf := make([]uint16, 1024)
-	filter, _ := syscall.UTF16PtrFromString("Keys & Config (*.txt;*.pem;*.pub;*.env)\x00*.txt;*.pem;*.pub;*.env\x00All Files (*.*)\x00*.*\x00\x00")
-	title, _ := syscall.UTF16PtrFromString("Seleccionar Clave Pública")
+	filter, _ := syscall.UTF16PtrFromString("Archivos PEM (*.pem)\x00*.pem\x00Archivos de Claves (*.pem;*.pub;*.txt;*.env;*.key)\x00*.pem;*.pub;*.txt;*.env;*.key\x00Todos los Archivos (*.*)\x00*.*\x00\x00")
+	title, _ := syscall.UTF16PtrFromString("Seleccionar Clave Pública RSA (.pem)")
 
 	ofn := OPENFILENAMEW{
 		StructSize:  uint32(unsafe.Sizeof(OPENFILENAMEW{})),

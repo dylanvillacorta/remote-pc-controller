@@ -230,25 +230,80 @@ func publicKey(values map[string]string) (*rsa.PublicKey, error) {
 	return ValidatePublicKeyPEM(raw)
 }
 
-// ValidatePublicKeyPEM parses and validates an RSA public key PEM string.
-func ValidatePublicKeyPEM(raw string) (*rsa.PublicKey, error) {
+// KeyInfo contains inspected metadata about a public RSA key.
+type KeyInfo struct {
+	Key          *rsa.PublicKey
+	Bits         int
+	FormatType   string
+	IsSingleLine bool
+}
+
+// InspectPublicKey parses, validates, and identifies the format of an RSA public key PEM.
+// It supports traditional multiline PEM with newlines, single-line with literal \n escapes,
+// and both PKIX (X.509) and PKCS#1 RSA key formats.
+func InspectPublicKey(raw string) (KeyInfo, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return KeyInfo{}, fmt.Errorf("la clave está vacía")
+	}
+
+	// Remove outer quotes if present
+	if (strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"")) ||
+		(strings.HasPrefix(raw, "'") && strings.HasSuffix(raw, "'")) {
+		raw = raw[1 : len(raw)-1]
+	}
+
+	isSingleLine := false
+	formatType := "Tradicional (multilínea con saltos de línea)"
+
+	if strings.Contains(raw, `\n`) && !strings.Contains(raw, "\n") {
+		isSingleLine = true
+		formatType = "Línea única (con escapes \\n)"
+		raw = strings.ReplaceAll(raw, `\n`, "\n")
+		raw = strings.ReplaceAll(raw, `\r`, "\r")
+	}
+
 	block, _ := pem.Decode([]byte(raw))
 	if block == nil {
-		return nil, fmt.Errorf("PUBLIC_KEY is not a valid PEM block")
+		return KeyInfo{}, fmt.Errorf("no se encontró un bloque PEM válido (debe iniciar con -----BEGIN ...-----)")
 	}
+
 	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		// Also try PKCS1 format
 		if pkcs1Key, pkcs1Err := x509.ParsePKCS1PublicKey(block.Bytes); pkcs1Err == nil {
-			return pkcs1Key, nil
+			bits := pkcs1Key.N.BitLen()
+			return KeyInfo{
+				Key:          pkcs1Key,
+				Bits:         bits,
+				FormatType:   formatType + " [PKCS#1 RSA]",
+				IsSingleLine: isSingleLine,
+			}, nil
 		}
-		return nil, fmt.Errorf("PUBLIC_KEY cannot be parsed as PKIX or PKCS1: %w", err)
+		return KeyInfo{}, fmt.Errorf("no se pudo parsear como clave pública RSA (PKIX/PKCS#1): %w", err)
 	}
+
 	key, ok := parsed.(*rsa.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("PUBLIC_KEY is not an RSA key")
+		return KeyInfo{}, fmt.Errorf("el bloque PEM contiene una clave pero no es de tipo RSA")
 	}
-	return key, nil
+
+	bits := key.N.BitLen()
+	return KeyInfo{
+		Key:          key,
+		Bits:         bits,
+		FormatType:   formatType + " [PKIX/X.509]",
+		IsSingleLine: isSingleLine,
+	}, nil
+}
+
+// ValidatePublicKeyPEM parses and validates an RSA public key PEM string.
+func ValidatePublicKeyPEM(raw string) (*rsa.PublicKey, error) {
+	info, err := InspectPublicKey(raw)
+	if err != nil {
+		return nil, err
+	}
+	return info.Key, nil
 }
 
 func valueOr(v, fallback string) string {

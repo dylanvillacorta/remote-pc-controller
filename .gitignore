@@ -1,6 +1,8 @@
 .gocache/
 .gomodcache/
 *.exe
+*.exe~
+sentinel/build/
 *.log
 deploy/relay/secrets/*
 !deploy/relay/secrets/.gitkeep

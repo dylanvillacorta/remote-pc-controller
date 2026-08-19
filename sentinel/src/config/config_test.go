@@ -136,3 +136,53 @@ func TestSaveAndLoadWithDefaults(t *testing.T) {
 		t.Errorf("expected EnableNotifications false, got %v", cfg.EnableNotifications)
 	}
 }
+
+func TestInspectPublicKey(t *testing.T) {
+	pubPEM := generateTestKeyPair(t)
+
+	// 1. Traditional multiline PEM
+	info, err := InspectPublicKey(string(pubPEM))
+	if err != nil {
+		t.Fatalf("unexpected error inspecting multiline: %v", err)
+	}
+	if info.Bits != 2048 {
+		t.Errorf("expected 2048 bits, got %d", info.Bits)
+	}
+	if info.IsSingleLine {
+		t.Errorf("expected IsSingleLine to be false")
+	}
+
+	// 2. Single-line with \n escapes
+	escaped := strings.ReplaceAll(string(pubPEM), "\n", `\n`)
+	infoEscaped, err := InspectPublicKey(escaped)
+	if err != nil {
+		t.Fatalf("unexpected error inspecting escaped: %v", err)
+	}
+	if !infoEscaped.IsSingleLine {
+		t.Errorf("expected IsSingleLine to be true")
+	}
+	if infoEscaped.Bits != 2048 {
+		t.Errorf("expected 2048 bits, got %d", infoEscaped.Bits)
+	}
+
+	// 3. Quoted string
+	quoted := `"` + escaped + `"`
+	infoQuoted, err := InspectPublicKey(quoted)
+	if err != nil {
+		t.Fatalf("unexpected error inspecting quoted: %v", err)
+	}
+	if infoQuoted.Bits != 2048 {
+		t.Errorf("expected 2048 bits, got %d", infoQuoted.Bits)
+	}
+
+	// 4. Invalid key
+	if _, err := InspectPublicKey("not a valid pem"); err == nil {
+		t.Errorf("expected error for invalid PEM, got nil")
+	}
+
+	// 5. Empty key
+	if _, err := InspectPublicKey(""); err == nil {
+		t.Errorf("expected error for empty key, got nil")
+	}
+}
+
